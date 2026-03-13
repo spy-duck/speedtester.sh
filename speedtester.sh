@@ -5,6 +5,13 @@ ITERATIONS=5
 INTERVAL=30
 SERVER_ID=""
 
+BLUE='\033[0;94m'
+BLUE_LIGHT='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+DIVIDER_LEN=60
+
 # Restore cursor and clean up temp files
 cleanup() {
     tput cnorm
@@ -29,9 +36,27 @@ check_dependencies() {
     fi
 
     if [ "$missing_speedtest" = true ] || [ "$missing_bc" = true ]; then
-        echo -e "\e[0;31mError: Required utilities are not installed.\e[0m"
-        [ "$missing_bc" = true ] && echo "Please install 'bc' for calculations."
-        [ "$missing_speedtest" = true ] && echo "Utility 'speedtest' not found. Visit https://www.speedtest.net/apps/cli"
+        echo -e "${RED}Error: Required utilities are not installed.${NC}"
+        local package="speedtest-cli"
+
+         if [ "$missing_bc" = true ]; then
+          package="bc"
+         fi
+
+        echo "Utility '${package}' not found."
+        echo "You can install it using one of the following commands:"
+
+        # Package manager hint
+        if command -v apt &> /dev/null; then
+          echo -e "${BLUE}  sudo apt update && sudo apt install ${package}${NC}"
+        elif command -v brew &> /dev/null; then
+          echo -e "${BLUE}  brew install ${package}${NC}"
+        elif command -v yum &> /dev/null; then
+          echo -e "${BLUE}  sudo yum install ${package}${NC}"
+        else
+          echo "  Please visit https://www.speedtest.net/apps/cli for instructions."
+        fi
+
         exit 1
     fi
 }
@@ -88,11 +113,6 @@ SERVER_OPT=${SERVER_ID:+"--server $SERVER_ID"}
 download_results=()
 upload_results=()
 
-BLUE='\033[0;94m'
-BLUE_LIGHT='\033[0;34m'
-NC='\033[0m'
-
-DIVIDER_LEN=60
 function repeat() {
   seq -s- "$1" | tr -d '[:digit:]';
 }
