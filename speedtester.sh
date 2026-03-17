@@ -4,6 +4,7 @@
 ITERATIONS=5
 INTERVAL=30
 SERVER_ID=""
+SECURE_OPT="--secure" # По умолчанию включено
 
 BLUE='\033[0;94m'
 BLUE_LIGHT='\033[0;34m'
@@ -90,20 +91,22 @@ show_help() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  -n NUMBER   Number of iterations (default: ${ITERATIONS})"
-    echo "  -i NUMBER   Interval between tests in seconds (default: ${INTERVAL})"
-    echo "  -s ID       Specific Speedtest server ID"
-    echo "  -h          Show this help"
+    echo "  -n NUMBER    Number of iterations (default: ${ITERATIONS})"
+    echo "  -i NUMBER    Interval between tests in seconds (default: ${INTERVAL})"
+    echo "  -s ID        Specific Speedtest server ID"
+    echo "  -u           Disable secure connection (remove --secure)"
+    echo "  -h           Show this help"
     exit 0
 }
 
 check_dependencies
 
-while getopts "n:i:s:h" opt; do
+while getopts "n:i:s:uh" opt; do
   case $opt in
     n) ITERATIONS=$OPTARG ;;
     i) INTERVAL=$OPTARG ;;
     s) SERVER_ID=$OPTARG ;;
+    u) SECURE_OPT="" ;; # Отключаем secure
     h) show_help ;;
     *) show_help ;;
   esac
@@ -124,7 +127,7 @@ function divider() {
   if [ $len -gt $DIVIDER_LEN ]; then
     repeat $len;
   else
-     repeat $DIVIDER_LEN;
+      repeat $DIVIDER_LEN;
   fi
 }
 
@@ -136,7 +139,7 @@ for (( count=1; count<=ITERATIONS; count++ )); do
     printf "Test %3d of %-3d: " "$count" "$ITERATIONS"
 
     # Run speedtest in background
-    (speedtest --secure $SERVER_OPT --csv 2>/dev/null) > /tmp/speedtest_raw &
+    (speedtest $SECURE_OPT $SERVER_OPT --csv 2>/dev/null) > /tmp/speedtest_raw &
     SPEEDTEST_PID=$!
 
     show_spinner $SPEEDTEST_PID
@@ -183,10 +186,10 @@ for (( line=10; line>=1; line-- )); do
     for i in "${!download_results[@]}"; do
         if (( $(echo "${download_results[$i]} >= $threshold" | bc -l) && $(echo "${download_results[$i]} > 0" | bc -l) )); then
             blue " ▓▓"
-        else printf "   "; fi
+        else printf "    "; fi
         if (( $(echo "${upload_results[$i]} >= $threshold" | bc -l) && $(echo "${upload_results[$i]} > 0" | bc -l) )); then
             blue_light "▒▒ "
-        else printf "   "; fi
+        else printf "    "; fi
         printf "|"
     done
     echo ""
