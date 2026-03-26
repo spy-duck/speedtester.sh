@@ -11,7 +11,7 @@ BLUE_LIGHT='\033[0;34m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-DIVIDER_LEN=65
+DIVIDER_LEN=71
 
 function blue() { echo -n -e "${BLUE}$1${NC}"; }
 function blue_light() { echo -n -e "${BLUE_LIGHT}$1${NC}"; }
@@ -81,7 +81,7 @@ check_dependencies() {
     local deps=(speedtest-cli bc jq)
     local missed_pkgs=()
 
-    for pkg in speedtest-cli bc jq iftop; do
+    for pkg in "${deps[@]}"; do
         if ! command -v $pkg &> /dev/null; then
             missed_pkgs+=($pkg)
         fi
