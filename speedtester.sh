@@ -4,23 +4,20 @@
 ITERATIONS=5
 INTERVAL=30
 SERVER_ID=""
-SECURE_OPT="--secure" # По умолчанию включено
+SECURE_OPT="--secure" # By default
 
 BLUE='\033[0;94m'
 BLUE_LIGHT='\033[0;34m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-DIVIDER_LEN=60
-
-PUBLIC_IP=$(curl -s https://api.myip.com)
-
-function repeat() {
-  seq -s- "$1" | tr -d '[:digit:]';
-}
+DIVIDER_LEN=65
 
 function blue() { echo -n -e "${BLUE}$1${NC}"; }
 function blue_light() { echo -n -e "${BLUE_LIGHT}$1${NC}"; }
+function repeat() {
+  seq -s- "$1" | tr -d '[:digit:]';
+}
 function divider() {
   local len=$((ITERATIONS * 7 + 10))
   if [ $len -gt $DIVIDER_LEN ]; then
@@ -28,10 +25,6 @@ function divider() {
   else
       repeat $DIVIDER_LEN;
   fi
-}
-function join {
-    foo=(a "b c" d)
-    return $(IFS=, ; echo "${foo[*]}")
 }
 
 
@@ -132,11 +125,20 @@ show_help() {
     exit 0
 }
 
+ip_info() {
+    PUBLIC_IP=$(curl -s https://api.myip.com)
+    divider
+        echo "| IP info (api.myip.com)"
+    divider
+
+    echo "| Public IP | $(echo $PUBLIC_IP | jq .ip)"
+    echo "| Country   | $(echo $PUBLIC_IP | jq .country)"
+
+    divider
+}
+
 check_dependencies
 
-echo "Country: $(echo $PUBLIC_IP | jq .country)"
-echo "Public IP: $(echo $PUBLIC_IP | jq .ip)"
-exit 1
 
 
 while getopts "n:i:s:uh" opt; do
@@ -144,7 +146,7 @@ while getopts "n:i:s:uh" opt; do
     n) ITERATIONS=$OPTARG ;;
     i) INTERVAL=$OPTARG ;;
     s) SERVER_ID=$OPTARG ;;
-    u) SECURE_OPT="" ;; # Отключаем secure
+    u) SECURE_OPT="" ;;
     h) show_help ;;
     *) show_help ;;
   esac
@@ -156,12 +158,24 @@ upload_results=()
 success_count=0
 fail_count=0
 
+echo -e "\n"
+
+ip_info
+
+echo -e "\n"
+
 divider
-echo "Starting (Iterations: ${ITERATIONS}, Interval: ${INTERVAL}s, Server: ${SERVER_ID:-Auto})"
+
+IS_SECURE="true"
+if [ -z "${SECURE_OPT}" ]; then
+    IS_SECURE="false"
+fi
+echo "| Starting (Iterations: ${ITERATIONS}, Interval: ${INTERVAL}s, Server: ${SERVER_ID:-Auto}, Serure: ${IS_SECURE})"
+
 divider
 
 for (( count=1; count<=ITERATIONS; count++ )); do
-    printf "Test %3d of %-3d: " "$count" "$ITERATIONS"
+    printf "| %3d of %-3d | " "$count" "$ITERATIONS"
 
     # Run speedtest in background
     (speedtest $SECURE_OPT $SERVER_OPT --csv 2>/dev/null) > /tmp/speedtest_raw &
@@ -184,7 +198,7 @@ for (( count=1; count<=ITERATIONS; count++ )); do
         dl=$(echo "scale=2; $dl_raw / 1000000" | bc -l)
         ul=$(echo "scale=2; $ul_raw / 1000000" | bc -l)
         ((success_count++))
-        printf "⬇️  ${BLUE}%8s${NC} Mbit/s  |  ⬆️  ${BLUE_LIGHT}%8s${NC} Mbit/s\n" "${dl}" "${ul}"
+        printf "⬇️ ${BLUE}%8s${NC} Mbit/s | ⬆️ ${BLUE_LIGHT}%8s${NC} Mbit/s\n" "${dl}" "${ul}"
     fi
 
     download_results+=("$dl")
@@ -192,6 +206,10 @@ for (( count=1; count<=ITERATIONS; count++ )); do
 
     [ "$count" -lt "$ITERATIONS" ] && sleep "$INTERVAL"
 done
+
+divider
+
+echo -e "\n"
 
 
 
@@ -206,18 +224,17 @@ if [ $success_count -gt 0 ]; then
     avg_ul=$(echo "scale=2; $sum_ul / $success_count" | bc -l)
 fi
 
-echo -e "\n"
 
 divider
 
-echo -e " SUMMARY"
+echo -e "| Summary"
 
 divider
 
-printf " Success Tests:   %d\n" "$success_count"
-printf " Failed Tests:    %d\n" "$fail_count"
-printf " Avg Download:    ${BLUE}%s${NC} Mbit/s\n" "$avg_dl"
-printf " Avg Upload:      ${BLUE_LIGHT}%s${NC} Mbit/s\n" "$avg_ul"
+printf "| Success Tests:   %d\n" "$success_count"
+printf "| Failed Tests:    %d\n" "$fail_count"
+printf "| Avg Download:    ${BLUE}%s${NC} Mbit/s\n" "$avg_dl"
+printf "| Avg Upload:      ${BLUE_LIGHT}%s${NC} Mbit/s\n" "$avg_ul"
 
 divider
 
@@ -226,7 +243,7 @@ echo -e "\n"
 
 divider
 
-echo -e " SUMMARY CHART (Mbit/s) ${BLUE}▓▓${NC} = Download,  ${BLUE_LIGHT}▓▓${NC} = Upload"
+echo -e "| Summary chart (Mbit/s) ${BLUE}▓▓${NC} = Download,  ${BLUE_LIGHT}▓▓${NC} = Upload"
 
 divider
 
@@ -238,7 +255,7 @@ scale_step=$(echo "scale=2; $max_val / 10" | bc -l)
 
 for (( line=10; line>=1; line-- )); do
     threshold=$(echo "scale=2; $scale_step * $line" | bc -l)
-    printf "%7s |" "$threshold"
+    printf "| %7s |" "$threshold"
     for i in "${!download_results[@]}"; do
         if (( $(echo "${download_results[$i]} >= $threshold" | bc -l) && $(echo "${download_results[$i]} > 0" | bc -l) )); then
             blue " ▓▓"
@@ -255,8 +272,12 @@ done
 
 divider
 
-printf "        "
+printf "|        "
+
 for i in "${!download_results[@]}"; do printf "|  %-3s " "$((i+1))"; done
-echo -e "\n"
+
+echo -e ""
 
 divider
+
+echo -e "\n"
