@@ -13,6 +13,28 @@ NC='\033[0m'
 
 DIVIDER_LEN=60
 
+PUBLIC_IP=$(curl -s https://api.myip.com)
+
+function repeat() {
+  seq -s- "$1" | tr -d '[:digit:]';
+}
+
+function blue() { echo -n -e "${BLUE}$1${NC}"; }
+function blue_light() { echo -n -e "${BLUE_LIGHT}$1${NC}"; }
+function divider() {
+  local len=$((ITERATIONS * 7 + 10))
+  if [ $len -gt $DIVIDER_LEN ]; then
+    repeat $len;
+  else
+      repeat $DIVIDER_LEN;
+  fi
+}
+function join {
+    foo=(a "b c" d)
+    return $(IFS=, ; echo "${foo[*]}")
+}
+
+
 # Restore cursor and clean up temp files
 cleanup() {
     tput cnorm
@@ -20,45 +42,61 @@ cleanup() {
     exit
 }
 
+function confirm_or_exit() {
+  echo ""
+  while true; do
+      read -p "$1: [Y/n] " yn
+      case $yn in
+          [Yy]* ) break;;
+          [Nn]* ) exit 0;;
+          * ) echo "Please enter Yy|Nn";;
+      esac
+  done
+}
+
 # Catch interrupt (Ctrl+C)
 trap cleanup SIGINT SIGTERM
 
 # Check requirements
+install_pkg_tip() {
+    local install_command=""
+    echo "Utilities '$1' not found."
+    echo "You can install it using one of the following commands:"
+
+    # Package manager hint
+    if command -v apt &> /dev/null; then
+        install_command="sudo apt update && sudo apt install $1"
+    elif command -v brew &> /dev/null; then
+        install_command="brew install $1"
+    elif command -v yum &> /dev/null; then
+        install_command="sudo yum install $1"
+    else
+      echo "  Package manager is not recognized. Please install package $1 manualy"
+      exit 1
+    fi
+    echo -e "${BLUE}  ${install_command}${NC}"
+    confirm_or_exit "Run installation?"
+    eval "${install_command}"
+
+    divider
+    echo -e "${RED}Please restart script ./speedtester.sh${NC}"
+    divider
+    exit 1
+}
+
 check_dependencies() {
-    local missing_speedtest=false
-    local missing_bc=false
+    local deps=(speedtest-cli bc jq)
+    local missed_pkgs=()
 
-    if ! command -v speedtest &> /dev/null; then
-        missing_speedtest=true
-    fi
-
-    if ! command -v bc &> /dev/null; then
-        missing_bc=true
-    fi
-
-    if [ "$missing_speedtest" = true ] || [ "$missing_bc" = true ]; then
-        echo -e "${RED}Error: Required utilities are not installed.${NC}"
-        local package="speedtest-cli"
-
-         if [ "$missing_bc" = true ]; then
-          package="bc"
-         fi
-
-        echo "Utility '${package}' not found."
-        echo "You can install it using one of the following commands:"
-
-        # Package manager hint
-        if command -v apt &> /dev/null; then
-          echo -e "${BLUE}  sudo apt update && sudo apt install ${package}${NC}"
-        elif command -v brew &> /dev/null; then
-          echo -e "${BLUE}  brew install ${package}${NC}"
-        elif command -v yum &> /dev/null; then
-          echo -e "${BLUE}  sudo yum install ${package}${NC}"
-        else
-          echo "  Please visit https://www.speedtest.net/apps/cli for instructions."
+    for pkg in speedtest-cli bc jq iftop; do
+        if ! command -v $pkg &> /dev/null; then
+            missed_pkgs+=($pkg)
         fi
+    done
 
-        exit 1
+
+    if (( ${#missed_pkgs[@]} != 0 )); then
+        install_pkg_tip "${missed_pkgs[*]}"
     fi
 }
 
@@ -96,6 +134,11 @@ show_help() {
 
 check_dependencies
 
+echo "Country: $(echo $PUBLIC_IP | jq .country)"
+echo "Public IP: $(echo $PUBLIC_IP | jq .ip)"
+exit 1
+
+
 while getopts "n:i:s:uh" opt; do
   case $opt in
     n) ITERATIONS=$OPTARG ;;
@@ -112,21 +155,6 @@ download_results=()
 upload_results=()
 success_count=0
 fail_count=0
-
-function repeat() {
-  seq -s- "$1" | tr -d '[:digit:]';
-}
-
-function blue() { echo -n -e "${BLUE}$1${NC}"; }
-function blue_light() { echo -n -e "${BLUE_LIGHT}$1${NC}"; }
-function divider() {
-  local len=$((ITERATIONS * 7 + 10))
-  if [ $len -gt $DIVIDER_LEN ]; then
-    repeat $len;
-  else
-      repeat $DIVIDER_LEN;
-  fi
-}
 
 divider
 echo "Starting (Iterations: ${ITERATIONS}, Interval: ${INTERVAL}s, Server: ${SERVER_ID:-Auto})"
