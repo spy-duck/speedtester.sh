@@ -67,20 +67,15 @@ show_spinner() {
     local pid=$1
     local delay=0.1
     local spinstr='|/-\'
-
-    tput civis # Hide cursor
-    tput sc    # Save cursor position
-
+    tput civis
+    tput sc
     while kill -0 "$pid" 2>/dev/null; do
         local temp=${spinstr#?}
-        # Print symbol at saved position
         printf " [%c] " "$spinstr"
         local spinstr=$temp${spinstr%"$temp"}
         sleep $delay
-        tput rc # Restore cursor position
+        tput rc
     done
-
-    # Clear spinner area (4 spaces)
     printf "    "
     tput rc
     tput cnorm # Show cursor
@@ -115,6 +110,8 @@ done
 SERVER_OPT=${SERVER_ID:+"--server $SERVER_ID"}
 download_results=()
 upload_results=()
+success_count=0
+fail_count=0
 
 function repeat() {
   seq -s- "$1" | tr -d '[:digit:]';
@@ -151,27 +148,58 @@ for (( count=1; count<=ITERATIONS; count++ )); do
 
     if [ -z "$raw_data" ]; then
         dl=0; ul=0
-        echo "⚠️  Test error"
+        ((fail_count++))
+        echo -e "${RED}⚠️  Error${NC}"
     else
         dl_raw=$(echo "$raw_data" | cut -d',' -f7)
         ul_raw=$(echo "$raw_data" | cut -d',' -f8)
         dl=$(echo "scale=2; $dl_raw / 1000000" | bc -l)
         ul=$(echo "scale=2; $ul_raw / 1000000" | bc -l)
+        ((success_count++))
         printf "⬇️  ${BLUE}%8s${NC} Mbit/s  |  ⬆️  ${BLUE_LIGHT}%8s${NC} Mbit/s\n" "${dl}" "${ul}"
     fi
 
     download_results+=("$dl")
     upload_results+=("$ul")
 
-    if [ "$count" -lt "$ITERATIONS" ]; then
-        sleep "$INTERVAL"
-    fi
+    [ "$count" -lt "$ITERATIONS" ] && sleep "$INTERVAL"
 done
+
+
+
+# --- Summary ---
+sum_dl=0; sum_ul=0
+for d in "${download_results[@]}"; do sum_dl=$(echo "$sum_dl + $d" | bc -l); done
+for u in "${upload_results[@]}"; do sum_ul=$(echo "$sum_ul + $u" | bc -l); done
+
+avg_dl=0; avg_ul=0
+if [ $success_count -gt 0 ]; then
+    avg_dl=$(echo "scale=2; $sum_dl / $success_count" | bc -l)
+    avg_ul=$(echo "scale=2; $sum_ul / $success_count" | bc -l)
+fi
+
+echo -e "\n"
+
+divider
+
+echo -e " SUMMARY"
+
+divider
+
+printf " Success Tests:   %d\n" "$success_count"
+printf " Failed Tests:    %d\n" "$fail_count"
+printf " Avg Download:    ${BLUE}%s${NC} Mbit/s\n" "$avg_dl"
+printf " Avg Upload:      ${BLUE_LIGHT}%s${NC} Mbit/s\n" "$avg_ul"
+
+divider
 
 # --- Graph Generation ---
 echo -e "\n"
+
 divider
+
 echo -e " SUMMARY CHART (Mbit/s) ${BLUE}▓▓${NC} = Download,  ${BLUE_LIGHT}▓▓${NC} = Upload"
+
 divider
 
 max_val=1
@@ -186,10 +214,12 @@ for (( line=10; line>=1; line-- )); do
     for i in "${!download_results[@]}"; do
         if (( $(echo "${download_results[$i]} >= $threshold" | bc -l) && $(echo "${download_results[$i]} > 0" | bc -l) )); then
             blue " ▓▓"
-        else printf "    "; fi
+        else printf "   "; fi
+
         if (( $(echo "${upload_results[$i]} >= $threshold" | bc -l) && $(echo "${upload_results[$i]} > 0" | bc -l) )); then
             blue_light "▒▒ "
-        else printf "    "; fi
+        else printf "   "; fi
+
         printf "|"
     done
     echo ""
@@ -200,3 +230,5 @@ divider
 printf "        "
 for i in "${!download_results[@]}"; do printf "|  %-3s " "$((i+1))"; done
 echo -e "\n"
+
+divider
