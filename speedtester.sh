@@ -231,10 +231,10 @@ echo -e "| Summary"
 
 divider
 
-printf "| Success Tests:   %d\n" "$success_count"
-printf "| Failed Tests:    %d\n" "$fail_count"
-printf "| Avg Download:    ${BLUE}%s${NC} Mbit/s\n" "$avg_dl"
-printf "| Avg Upload:      ${BLUE_LIGHT}%s${NC} Mbit/s\n" "$avg_ul"
+printf "| Success Tests | %d\n" "$success_count"
+printf "| Failed Tests  | %d\n" "$fail_count"
+printf "| Avg Download  | ${BLUE}%s${NC} Mbit/s\n" "$avg_dl"
+printf "| Avg Upload    | ${BLUE_LIGHT}%s${NC} Mbit/s\n" "$avg_ul"
 
 divider
 
@@ -272,7 +272,7 @@ done
 
 divider
 
-printf "|        "
+printf "|         "
 
 for i in "${!download_results[@]}"; do printf "|  %-3s " "$((i+1))"; done
 
