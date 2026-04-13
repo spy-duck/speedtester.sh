@@ -17,7 +17,6 @@ wget https://raw.githubusercontent.com/spy-duck/speedtester.sh/refs/heads/main/s
 
 
 ## Run
-## Download
 ```shell
 ./speedtester.sh -n 8 -i 60
 ```
